@@ -2188,15 +2188,29 @@ USE_TZ = True
             sys.stderr = old_stderr
 
     def test_slim_handler(self):
-        zappa_cli = ZappaCLI()
-        zappa_cli.api_stage = "slim_handler"
-        zappa_cli.load_settings("test_settings.json")
-        zappa_cli.create_package()
+        import pkg_resources
 
-        self.assertTrue(os.path.isfile(zappa_cli.handler_path))
-        self.assertTrue(os.path.isfile(zappa_cli.zip_path))
+        OrigWorkingSet = pkg_resources.WorkingSet
 
-        zappa_cli.remove_local_zip()
+        def MockedWorkingSet(*args, **kwargs):
+            working_set = OrigWorkingSet(*args, **kwargs)
+            zappa_version = working_set.by_key.get("zappa")._version
+            version_without_local = zappa_version.partition("+")[0]
+            working_set.by_key.get("zappa")._version = version_without_local
+            return working_set
+
+        with mock.patch(
+            "pkg_resources.WorkingSet", autospec=True, side_effect=MockedWorkingSet
+        ):
+            zappa_cli = ZappaCLI()
+            zappa_cli.api_stage = "slim_handler"
+            zappa_cli.load_settings("test_settings.json")
+            zappa_cli.create_package()
+
+            self.assertTrue(os.path.isfile(zappa_cli.handler_path))
+            self.assertTrue(os.path.isfile(zappa_cli.zip_path))
+
+            zappa_cli.remove_local_zip()
 
     def test_validate_name(self):
         fname = "tests/name_scenarios.json"
