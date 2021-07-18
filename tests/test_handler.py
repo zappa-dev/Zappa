@@ -45,6 +45,9 @@ mocked_exception_handler = Mock()
 class TestZappa(unittest.TestCase):
     def setUp(self):
         mocked_exception_handler.reset_mock()
+        LambdaHandler._LambdaHandler__instance = None
+        LambdaHandler.settings = None
+        LambdaHandler.settings_name = None
 
     def tearDown(self):
         LambdaHandler._LambdaHandler__instance = None
