@@ -1,3 +1,23 @@
+## ⚠️ NOTE: Help required
+**If you are looking for official releases, please go to https://github.com/zappa/Zappa**
+
+This is a friendly fork of https://github.com/zappa/Zappa which was created because development and
+communication with the original developers ceased.
+
+This repository is not (yet) a place to request new big features but I would very much appreaciate
+any help in making this project a general team-effort. However, considering the bad code quality
+of Zappa, I do not like the idea of piling more features on top. My primary focus for now is
+improving tests and code structure and modernizing the toolchain. I am especially interested in help with
+* setting up CI (#2)
+* improving tests (#3, #4)
+* setting up a deployment and release system to PyPI
+
+In the long run, I want to separate the library-like functionality of Zappa and the CLI portion, providing
+better maintainability and possibly better integration with third-party tools like SLS, CloudFormation
+and Terraform.
+
+---
+
 <p align="center">
   <img src="http://i.imgur.com/oePnHJn.jpg" alt="Zappa Rocks!"/>
 </p>
