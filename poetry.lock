@@ -775,25 +775,6 @@ optional = false
 python-versions = "*"
 
 [[package]]
-name = "nose"
-version = "1.3.7"
-description = "nose extends unittest to make testing easier"
-category = "dev"
-optional = false
-python-versions = "*"
-
-[[package]]
-name = "nose-timer"
-version = "1.0.1"
-description = "A timer plugin for nosetests"
-category = "dev"
-optional = false
-python-versions = "*"
-
-[package.dependencies]
-nose = "*"
-
-[[package]]
 name = "packaging"
 version = "21.3"
 description = "Core utilities for Python packages"
@@ -1144,7 +1125,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = "~3.6.2 || ~3.7 || ~3.8 || ~3.9"
-content-hash = "be8abd363f5e1165a31cb0f25c02c78b86c6880387e263f93b79729ddf0ffbd3"
+content-hash = "edf44b9a58ba27da7c2fa741f6a639e904782a6f86146d83d20bdd486ebba7a1"
 
 [metadata.files]
 argcomplete = [
@@ -1397,14 +1378,6 @@ mypy = [
 mypy-extensions = [
     {file = "mypy_extensions-0.4.3-py2.py3-none-any.whl", hash = "sha256:090fedd75945a69ae91ce1303b5824f428daf5a028d2f6ab8a299250a846f15d"},
     {file = "mypy_extensions-0.4.3.tar.gz", hash = "sha256:2d82818f5bb3e369420cb3c4060a7970edba416647068eb4c5343488a6c604a8"},
-]
-nose = [
-    {file = "nose-1.3.7-py2-none-any.whl", hash = "sha256:dadcddc0aefbf99eea214e0f1232b94f2fa9bd98fa8353711dacb112bfcbbb2a"},
-    {file = "nose-1.3.7-py3-none-any.whl", hash = "sha256:9ff7c6cc443f8c51994b34a667bbcf45afd6d945be7477b52e97516fd17c53ac"},
-    {file = "nose-1.3.7.tar.gz", hash = "sha256:f1bffef9cbc82628f6e7d7b40d7e255aefaa1adb6a1b1d26c69a8b79e6208a98"},
-]
-nose-timer = [
-    {file = "nose-timer-1.0.1.tar.gz", hash = "sha256:8f70d103b7ffd9122a589de0df9d037a7d967519bf6de122621d2186609b9e3a"},
 ]
 packaging = [
     {file = "packaging-21.3-py3-none-any.whl", hash = "sha256:ef103e05f519cdc783ae24ea4e2e0f508a9c99b2d4969652eed6a2e1ea5bd522"},
