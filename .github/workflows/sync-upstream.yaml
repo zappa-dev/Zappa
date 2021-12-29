@@ -1,0 +1,33 @@
+name: Sync with upstream changes
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: octokit/request-action@v2.x
+        id: sync_branch
+        with:
+          route: POST /repos/{owner}/{repo}/merge-upstream
+          owner: zappa-dev
+          repo: Zappa
+          branch: upstream/master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - if: ${{ fromJson(steps.sync_branch.outputs.data).merge_type }} == "fast-forward"
+        uses: octokit/request-action@v2.x
+        with:
+          route: POST /repos/{owner}/{repo}/pulls
+          owner: zappa-dev
+          repo: Zappa
+          head: upstream/master
+          base: main
+          title: Merge new upstream commits
+          maintainer_can_modify: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
