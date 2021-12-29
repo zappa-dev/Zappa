@@ -53,21 +53,21 @@ flake:
 	flake8 zappa --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
 test-docs:
-	nosetests tests/test_docs.py --with-coverage --cover-package=zappa --with-timer
+	pytest tests/test_docs.py --cov=zappa --cov-append
 
 test-handler:
-	nosetests tests/test_handler.py --with-coverage --cover-package=zappa --with-timer
+	pytest tests/test_handler.py --cov=zappa --cov-append
 
 test-middleware:
-	nosetests tests/test_middleware.py --with-coverage --cover-package=zappa --with-timer
+	pytest tests/test_middleware.py --cov=zappa --cov-append
 
 test-placebo:
-	nosetests tests/test_placebo.py --with-coverage --cover-package=zappa --with-timer
+	pytest tests/test_placebo.py --cov=zappa --cov-append
 
 test-async:
-	nosetests tests/test_async.py --with-coverage --cover-package=zappa --with-timer
+	pytest tests/test_async.py --cov=zappa --cov-append
 
 test-general:
-	nosetests tests/test_zappa.py --with-coverage --cover-package=zappa --with-timer
+	pytest tests/test_zappa.py --cov=zappa --cov-append
 
 tests: clean test-docs test-handler test-middleware test-placebo test-async test-general
