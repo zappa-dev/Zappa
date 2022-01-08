@@ -1,6 +1,7 @@
 # -*- coding: utf8 -*-
 import base64
 import collections
+import contextlib
 import hashlib
 import json
 import os
@@ -12,7 +13,7 @@ import tempfile
 import unittest
 import uuid
 import zipfile
-from io import BytesIO
+from io import BytesIO, StringIO
 
 import botocore
 import botocore.stub
@@ -1742,142 +1743,146 @@ class TestZappa(unittest.TestCase):
         """
         old_stdout = sys.stderr
 
-        try:
-            zappa_cli = ZappaCLI()
-            zappa_cli.domain = "test.example.com"
+        stdout = StringIO()
+        with contextlib.redirect_stdout(stdout):
             try:
+                zappa_cli = ZappaCLI()
+                zappa_cli.domain = "test.example.com"
+                try:
+                    zappa_cli.certify()
+                except AttributeError:
+                    # Since zappa_cli.zappa isn't initialized, the certify() call
+                    # fails when it tries to inspect what Zappa has deployed.
+                    pass
+
+                # Set up a core.Zappa mock and let us save some state about
+                # domains and lambdas
+                zappa_mock = mock.create_autospec(Zappa)
+                zappa_mock.function_versions = []
+                zappa_mock.domain_names = {}
+
+                def get_lambda_function_versions(_function_name, *_args, **_kwargs):
+                    return zappa_mock.function_versions
+
+                def get_domain_name(domain, *_args, **_kwargs):
+                    return zappa_mock.domain_names.get(domain)
+
+                zappa_mock.get_domain_name.side_effect = get_domain_name
+                zappa_mock.get_lambda_function_versions.side_effect = (
+                    get_lambda_function_versions
+                )
+
+                zappa_cli.zappa = zappa_mock
+                self.assertRaises(ClickException, zappa_cli.certify)
+
+                # Make sure we get an error if we don't configure the domain.
+                zappa_cli.zappa.function_versions = ["$LATEST"]
+                zappa_cli.api_stage = "stage"
+                zappa_cli.zappa_settings = {"stage": {}}
+                zappa_cli.api_stage = "stage"
+                zappa_cli.domain = "test.example.com"
+
+                try:
+                    zappa_cli.certify()
+                except ClickException as e:
+                    log_output = str(e)
+                    self.assertIn("Can't certify a domain without", log_output)
+                    self.assertIn("domain", log_output)
+
+                # Without any LetsEncrypt settings, we should get a message about
+                # not having a lets_encrypt_key setting.
+                zappa_cli.zappa_settings["stage"]["domain"] = "test.example.com"
+                try:
+                    zappa_cli.certify()
+                    self.fail("Expected a ClickException")
+                except ClickException as e:
+                    log_output = str(e)
+                    self.assertIn("Can't certify a domain without", log_output)
+                    self.assertIn("lets_encrypt_key", log_output)
+
+                # With partial settings, we should get a message about not having
+                # certificate, certificate_key, and certificate_chain
+                zappa_cli.zappa_settings["stage"]["certificate"] = "foo"
+                try:
+                    zappa_cli.certify()
+                    self.fail("Expected a ClickException")
+                except ClickException as e:
+                    log_output = str(e)
+                    self.assertIn("Can't certify a domain without", log_output)
+                    self.assertIn("certificate_key", log_output)
+                    self.assertIn("certificate_chain", log_output)
+
+                zappa_cli.zappa_settings["stage"]["certificate_key"] = "key"
+                try:
+                    zappa_cli.certify()
+                    self.fail("Expected a ClickException")
+                except ClickException as e:
+                    log_output = str(e)
+                    self.assertIn("Can't certify a domain without", log_output)
+                    self.assertIn("certificate_key", log_output)
+                    self.assertIn("certificate_chain", log_output)
+
+                zappa_cli.zappa_settings["stage"]["certificate_chain"] = "chain"
+                del zappa_cli.zappa_settings["stage"]["certificate_key"]
+                try:
+                    zappa_cli.certify()
+                    self.fail("Expected a ClickException")
+                except ClickException as e:
+                    log_output = str(e)
+                    self.assertIn("Can't certify a domain without", log_output)
+                    self.assertIn("certificate_key", log_output)
+                    self.assertIn("certificate_chain", log_output)
+
+                # With all certificate settings, make sure Zappa's domain calls
+                # are executed.
+                cert_file = tempfile.NamedTemporaryFile()
+                cert_file.write(b"Hello world")
+                cert_file.flush()
+
+                zappa_cli.zappa_settings["stage"].update(
+                    {
+                        "certificate": cert_file.name,
+                        "certificate_key": cert_file.name,
+                        "certificate_chain": cert_file.name,
+                    }
+                )
+
+                stdout.truncate(0)
                 zappa_cli.certify()
-            except AttributeError:
-                # Since zappa_cli.zappa isn't initialized, the certify() call
-                # fails when it tries to inspect what Zappa has deployed.
-                pass
+                zappa_cli.zappa.create_domain_name.assert_called_once()
+                zappa_cli.zappa.update_route53_records.assert_called_once()
+                zappa_cli.zappa.update_domain_name.assert_not_called()
+                log_output = stdout.getvalue()
+                self.assertIn("Created a new domain name", log_output)
 
-            # Set up a core.Zappa mock and let us save some state about
-            # domains and lambdas
-            zappa_mock = mock.create_autospec(Zappa)
-            zappa_mock.function_versions = []
-            zappa_mock.domain_names = {}
+                zappa_cli.zappa.reset_mock()
+                zappa_cli.zappa.domain_names["test.example.com"] = "*.example.com"
 
-            def get_lambda_function_versions(_function_name, *_args, **_kwargs):
-                return zappa_mock.function_versions
-
-            def get_domain_name(domain, *_args, **_kwargs):
-                return zappa_mock.domain_names.get(domain)
-
-            zappa_mock.get_domain_name.side_effect = get_domain_name
-            zappa_mock.get_lambda_function_versions.side_effect = (
-                get_lambda_function_versions
-            )
-
-            zappa_cli.zappa = zappa_mock
-            self.assertRaises(ClickException, zappa_cli.certify)
-
-            # Make sure we get an error if we don't configure the domain.
-            zappa_cli.zappa.function_versions = ["$LATEST"]
-            zappa_cli.api_stage = "stage"
-            zappa_cli.zappa_settings = {"stage": {}}
-            zappa_cli.api_stage = "stage"
-            zappa_cli.domain = "test.example.com"
-
-            try:
+                stdout.truncate(0)
                 zappa_cli.certify()
-            except ClickException as e:
-                log_output = str(e)
-                self.assertIn("Can't certify a domain without", log_output)
-                self.assertIn("domain", log_output)
+                zappa_cli.zappa.update_domain_name.assert_called_once()
+                zappa_cli.zappa.update_route53_records.assert_not_called()
+                zappa_cli.zappa.create_domain_name.assert_not_called()
+                log_output = stdout.getvalue()
+                self.assertNotIn("Created a new domain name", log_output)
 
-            # Without any LetsEncrypt settings, we should get a message about
-            # not having a lets_encrypt_key setting.
-            zappa_cli.zappa_settings["stage"]["domain"] = "test.example.com"
-            try:
+                # Test creating domain without Route53
+                zappa_cli.zappa_settings["stage"].update(
+                    {
+                        "route53_enabled": False,
+                    }
+                )
+                zappa_cli.zappa.reset_mock()
+                zappa_cli.zappa.domain_names["test.example.com"] = ""
+                stdout.truncate(0)
                 zappa_cli.certify()
-                self.fail("Expected a ClickException")
-            except ClickException as e:
-                log_output = str(e)
-                self.assertIn("Can't certify a domain without", log_output)
-                self.assertIn("lets_encrypt_key", log_output)
-
-            # With partial settings, we should get a message about not having
-            # certificate, certificate_key, and certificate_chain
-            zappa_cli.zappa_settings["stage"]["certificate"] = "foo"
-            try:
-                zappa_cli.certify()
-                self.fail("Expected a ClickException")
-            except ClickException as e:
-                log_output = str(e)
-                self.assertIn("Can't certify a domain without", log_output)
-                self.assertIn("certificate_key", log_output)
-                self.assertIn("certificate_chain", log_output)
-
-            zappa_cli.zappa_settings["stage"]["certificate_key"] = "key"
-            try:
-                zappa_cli.certify()
-                self.fail("Expected a ClickException")
-            except ClickException as e:
-                log_output = str(e)
-                self.assertIn("Can't certify a domain without", log_output)
-                self.assertIn("certificate_key", log_output)
-                self.assertIn("certificate_chain", log_output)
-
-            zappa_cli.zappa_settings["stage"]["certificate_chain"] = "chain"
-            del zappa_cli.zappa_settings["stage"]["certificate_key"]
-            try:
-                zappa_cli.certify()
-                self.fail("Expected a ClickException")
-            except ClickException as e:
-                log_output = str(e)
-                self.assertIn("Can't certify a domain without", log_output)
-                self.assertIn("certificate_key", log_output)
-                self.assertIn("certificate_chain", log_output)
-
-            # With all certificate settings, make sure Zappa's domain calls
-            # are executed.
-            cert_file = tempfile.NamedTemporaryFile()
-            cert_file.write(b"Hello world")
-            cert_file.flush()
-
-            zappa_cli.zappa_settings["stage"].update(
-                {
-                    "certificate": cert_file.name,
-                    "certificate_key": cert_file.name,
-                    "certificate_chain": cert_file.name,
-                }
-            )
-            sys.stdout.truncate(0)
-            zappa_cli.certify()
-            zappa_cli.zappa.create_domain_name.assert_called_once()
-            zappa_cli.zappa.update_route53_records.assert_called_once()
-            zappa_cli.zappa.update_domain_name.assert_not_called()
-            log_output = sys.stdout.getvalue()
-            self.assertIn("Created a new domain name", log_output)
-
-            zappa_cli.zappa.reset_mock()
-            zappa_cli.zappa.domain_names["test.example.com"] = "*.example.com"
-            sys.stdout.truncate(0)
-            zappa_cli.certify()
-            zappa_cli.zappa.update_domain_name.assert_called_once()
-            zappa_cli.zappa.update_route53_records.assert_not_called()
-            zappa_cli.zappa.create_domain_name.assert_not_called()
-            log_output = sys.stdout.getvalue()
-            self.assertNotIn("Created a new domain name", log_output)
-
-            # Test creating domain without Route53
-            zappa_cli.zappa_settings["stage"].update(
-                {
-                    "route53_enabled": False,
-                }
-            )
-            zappa_cli.zappa.reset_mock()
-            zappa_cli.zappa.domain_names["test.example.com"] = ""
-            sys.stdout.truncate(0)
-            zappa_cli.certify()
-            zappa_cli.zappa.create_domain_name.assert_called_once()
-            zappa_cli.zappa.update_route53_records.assert_not_called()
-            zappa_cli.zappa.update_domain_name.assert_not_called()
-            log_output = sys.stdout.getvalue()
-            self.assertIn("Created a new domain name", log_output)
-        finally:
-            sys.stdout = old_stdout
+                zappa_cli.zappa.create_domain_name.assert_called_once()
+                zappa_cli.zappa.update_route53_records.assert_not_called()
+                zappa_cli.zappa.update_domain_name.assert_not_called()
+                log_output = stdout.getvalue()
+                self.assertIn("Created a new domain name", log_output)
+            finally:
+                sys.stdout = old_stdout
 
     @mock.patch("troposphere.Template")
     @mock.patch("botocore.client")

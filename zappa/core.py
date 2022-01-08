@@ -960,7 +960,7 @@ class Zappa:
             os.makedirs(cached_wheels_dir)
         else:
             # Check if we already have a cached copy
-            wheel_name = re.sub("[^\w\d.]+", "_", package_name, re.UNICODE)
+            wheel_name = re.sub(r"[^\w\d.]+", "_", package_name, re.UNICODE)
             wheel_file = f"{wheel_name}-{package_version}-*_x86_64.whl"
             wheel_path = os.path.join(cached_wheels_dir, wheel_file)
 
@@ -2403,7 +2403,7 @@ class Zappa:
 
         auth_type = "NONE"
         if iam_authorization and authorizer:
-            logger.warn(
+            logger.warning(
                 "Both IAM Authorization and Authorizer are specified, this is not possible. "
                 "Setting Auth method to IAM Authorization"
             )
