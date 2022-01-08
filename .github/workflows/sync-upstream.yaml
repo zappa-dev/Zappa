@@ -20,6 +20,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - if: ${{ fromJson(steps.sync_branch.outputs.data).merge_type }} == "fast-forward"
+        id: create-pr
         uses: octokit/request-action@v2.x
         with:
           route: POST /repos/{owner}/{repo}/pulls
@@ -31,3 +32,6 @@ jobs:
           maintainer_can_modify: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+      - if: steps.create-pr.outputs.status != '201' && steps.create-pr.outputs.status != '422'
+        run: exit 1
